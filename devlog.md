@@ -59,3 +59,10 @@ The function should create a csv file that stores every key and value pair in th
 6. 160 bytes: Sequence of 20 64-bit offsets. These are the block ids that point to the child of the node. If a child is a leaf node, the corresponding id is 0.
 7. Remaining bytes are unused
 
+
+## May 9th 4:00 PM
+Begin working on project.
+
+Start with setting up the main function and implementing the b-tree data structure class. For ease, I will be containing the class definition within one file but better practice would be to of course separate the classes into different python files. Which in this case will be the index file class definition and the b-tree structure definition
+
+Had some breaks in between but finished up the b tree class which includes the constructor and translation from and to byte and b tree form. Time is 830 PM
