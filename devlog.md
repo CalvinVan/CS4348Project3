@@ -37,7 +37,7 @@ The function should create a csv file that stores every key and value pair in th
 
 ## Index File Notes
 - The index file will be divided into blocks of 512 bytes.
-- Each ndoe of the btree will fit in one block
+- Each node of the btree will fit in one block
 - The file header will use the entire first block
 - New nodes appended to end of file
 - No need to worry about delete
@@ -66,3 +66,9 @@ Begin working on project.
 Start with setting up the main function and implementing the b-tree data structure class. For ease, I will be containing the class definition within one file but better practice would be to of course separate the classes into different python files. Which in this case will be the index file class definition and the b-tree structure definition
 
 Had some breaks in between but finished up the b tree class which includes the constructor and translation from and to byte and b tree form. Time is 830 PM
+
+## May 9th 8:30PM
+** B TREE CLASS IS NOT FINISHED SKELETON IS SET UP BUT WILL NEED MORE FUNCTIONS LATER FOR SEARCH AND INSERTION ** For now working on setting up the def main to pass in inputs and to also start working on index file class to manage memory
+
+## May 9th 11PM
+Finished up a majority of the program with b tree and index file implementation. Will comment later on it as it is late on progress and implementation.
