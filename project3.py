@@ -5,8 +5,6 @@ import sys
 #import csv for load and extract
 import csv
 
-#importing struct for binary stuff
-
 
 #Memory and B-tree constants
 BLOCK_SIZE = 512
@@ -16,7 +14,8 @@ MAX_CHILDREN = 20
 MAGIC_NUMBER = b"4348PRJ3" #the magic number in ascii byte encoding
 
 class BTreeNode:
-  def __init__(self, blockID, parentID = 0, isLeaf=True): # constructor assume that the node created is a root unless stated otherwise alongside being a leaf node
+  #added blockID type to be an integer for safety.
+  def __init__(self, blockID: int, parentID: int = 0, isLeaf: bool = True): # constructor assume that the node created is a root unless stated otherwise alongside being a leaf node
     self.blockID = blockID
     self.parentID = parentID
     self.numKeys = 0
@@ -30,19 +29,19 @@ class BTreeNode:
   def to_bytes(self): #function to convert the node to byte information for storage using the method mentioned in project notes
     result = bytearray()
 
-    result.extend(self.blockID.to_bytes(8, 'big'))
+    result.extend(self.blockID.to_bytes(8, 'big')) #8 bytes
 
-    result.extend(self.parentID.to_bytes(8, 'big'))
+    result.extend(self.parentID.to_bytes(8, 'big')) #8 bytes
 
-    result.extend(self.numKeys.to_bytes(8, 'big'))
+    result.extend(self.numKeys.to_bytes(8, 'big')) #8 bytes
 
-    for key in self.keys:
+    for key in self.keys:  #152 bytes
       result.extend(key.to_bytes(8, 'big'))
     
-    for value in self.values:
+    for value in self.values: #152 bytes
       result.extend(value.to_bytes(8, 'big'))
     
-    for child in self.children:
+    for child in self.children: # 160 bytes
       result.extend(child.to_bytes(8, 'big'))
 
     #next we have to encode the remaining block that is not used with an empty space
@@ -51,6 +50,16 @@ class BTreeNode:
 
     return bytes(result)
   
+  def search(self, key: int): #btree search method to check for trees within its node
+    i = 0
+    while i < self.numKeys and key > self.keys[i]:
+      i += 1
+    
+    if i < self.numKeys and key == self.keys[i]: #return the index a which the key is found when we find it
+      return i, True
+    
+    return i, False #if we dont find the key return false and the last index
+
   #Function below is a class defined method for the b tree such that it can parse through the byte and convert it back to readable data in the form of our b tree class 
   @classmethod
   def from_bytes(cls, data):
@@ -163,7 +172,7 @@ class IndexFile:
       self.file = None
       self.nodesInMemArrDict = {} #empty out our nodes in memory
 
-  def read_node(self, blockID): #given the block id, read the node and its info
+  def read_node(self, blockID: int): #given the block id, read the node and its info
     if blockID == 0:
       return None #this means that there is no node to read so return false
     
@@ -186,7 +195,7 @@ class IndexFile:
     self.nodesInMemArrDict[blockID] = node #add the looked at node into memory
     return node
   
-  def write_node(self, node):
+  def write_node(self, node: BTreeNode):
     #write the node to the file 
     if not self.file:
       return False
@@ -203,10 +212,10 @@ class IndexFile:
     node = BTreeNode(blockID)
     node.modified = True
 
-    if len(self.nodesInMemArrDict == 3):
+    if len(self.nodesInMemArrDict) == 3:
       #since we are working with a node to allocate it, we need to update memory since a new node is being accessed
       oldestBlockID = next(iter(self.nodesInMemArrDict))
-      oldNode = self.nodesInMemArrDict(oldestBlockID)
+      oldNode = self.nodesInMemArrDict[oldestBlockID]
       if oldNode.modified:
         self.write_node(oldNode) #if it happened to be modified update it first in the byte string then pop it
       self.nodesInMemArrDict.pop(oldestBlockID)
@@ -214,7 +223,7 @@ class IndexFile:
     self.nodesInMemArrDict[blockID] = node
     return node
   
-  def search(self, key): #function to search in our b tree for the key
+  def search(self, key: int): #function to search in our b tree for the key
     if not self.file:
       print("Error: No index file is open.")
       return None
@@ -225,7 +234,7 @@ class IndexFile:
 
     return self.search_node(self.rootBlockID, key) #call helper function to search for node
   
-  def search_node(self, blockID, key): #helper function to search for the node 
+  def search_node(self, blockID: int, key: int): #helper function to search for the node 
     if blockID == 0:
       print(f"Error: Key {key} not found because empty tree.")
       return None
@@ -239,13 +248,13 @@ class IndexFile:
     if found:
       return (node.keys[i], node.values[i])
     
-    if node.is_leaf: #if it is a leaf then the key can't be found as there are no more nodes to search for
-      print(f"Error: {key} not found.")
+    if node.isLeaf: #if it is a leaf then the key can't be found as there are no more nodes to search for
+      print(f"Error: Key {key} not found.")
       return None
 
     return self.search_node(node.children[i], key) #if we do not find the key and it is not a leaf, we search the children 
   
-  def insert(self, key, value): #function to insert key-value pair into b tree
+  def insert(self, key: int, value: int): #function to insert key-value pair into b tree
     if not self.file:
       print("Error: No index file is open.")
       return False
@@ -274,10 +283,10 @@ class IndexFile:
       self.split_child(newRoot, 0, root) #call function to split the old root
 
       return self.insert_non_full(newRoot, key, value) #call helper function to insert new root
-    else: #in the case the root is not full, we can cal
+    else: #in the case the root is not full, we can just call the insert
       return self.insert_non_full(root, key, value)
   
-  def insert_non_full(self, node, key, value): #insert into a non full node
+  def insert_non_full(self, node: BTreeNode, key: int, value: int): #insert into a non full node
     i = node.numKeys - 1 #get how many keys are in the node currently and get the index of  where the last key is
 
     #First we want to check if it is a leaf node
@@ -293,7 +302,7 @@ class IndexFile:
       node.keys[i+1] = key
       node.values[i+1] = value
       node.numKeys += 1
-      node.modfied = True
+      node.modified = True
 
       return True
 
@@ -316,7 +325,7 @@ class IndexFile:
     
     return self.insert_non_full(child, key, value) #now we can insert it into the child node which should now be non-full
   
-  def split_child(self, parent, index, child): #function to split a full child node
+  def split_child(self, parent: BTreeNode, index: int, child: BTreeNode): #function to split a full child node
     #create a new child node
     newChild = self.allocate_node()
     newChild.isLeaf = child.isLeaf #we take the status of what child is being split of whether it is a node
@@ -383,7 +392,7 @@ class IndexFile:
       print(f"Error loading CSV file: {e}")
       return False
    
-  def printTree(self): #function to print tree
+  def print_tree(self): #function to print tree
     if not self.file:
       print("Error: No index file is open")
       return
@@ -393,13 +402,13 @@ class IndexFile:
       return
     
     print("B-Tree Structure:")
-    self.print_node(self.rootBlockID, 0)
+    self.print_node(self.rootBlockID, 0) #Call the helper function to print our nodes
   
-  def print_node(self, blockID, level):
+  def print_node(self, blockID, level): #recursive function to print the node information and its children
     if blockID == 0:
       return
     
-    node = self.read_node(blockID)
+    node = self.read_node(blockID) #Calls function to read the node based on the given block id
     if not node:
       return
     
@@ -410,10 +419,54 @@ class IndexFile:
     for i in range(node.numKeys):
       print(f"({node.keys[i]}, {node.values[i]})", end= " ")
     
+    print() #printing a new line after printing the keys
+
+
     if not node.isLeaf:
       for i in range(node.numKeys + 1):
         self.print_node(node.children[i], level + 1)
   
+  def extract_to_csv(self, outputFileName): #function to extract to csv file
+    if not self.file:
+      print("Error: No index file is open.")
+      return False
+    
+
+    if self.rootBlockID == 0:
+      print("Tree is empty, creating empty CSV File.")
+      with open(outputFileName, 'w') as f:
+        pass # we simply will create the file with write mode and then close it by running the pass
+      return True
+    
+    try:
+      with open(outputFileName, 'w', newline='') as csvFile:
+        writer = csv.writer(csvFile)
+        self.extract_node(self.rootBlockID, writer) #Call helper function to get key and value information from node
+      return True
+    except Exception as e:
+      print(f"Error extracting to CSV file: {e}")
+      return False
+    
+  def extract_node(self, blockID, writer): # recursive function to extract key value pair from a given node and its children
+    if blockID == 0:
+      return
+    
+    node = self.read_node(blockID)
+
+    if not node:
+      return
+    
+    #using in-order traversal to traverse the b tree. Traversal method doesn't matter as we care more about all the key value pairs in the index file itself
+    if node.isLeaf: #write all the keys in the leaf node
+      for i in range(node.numKeys):
+        writer.writerow([node.keys[i], node.values[i]])
+    else: #we need to process the keys with the children
+      for i in range(node.numKeys):
+        self.extract_node(node.children[i], writer) #Get all key and values from children to the left
+        writer.writerow([node.keys[i], node.values[i]]) # get the keys and values of the node itself
+      self.extract_node(node.children[node.numKeys], writer) #get the keys and values of the children to the right of the node
+
+      
   
 
 def main():
@@ -458,76 +511,83 @@ def main():
         print(f"Key {key} with value {value} inserted sucessfully.")
       indexFile.close()
 
-    elif cmd == "search":
+  elif cmd == "search":
+    if len(sys.argv) < 4:
+      print("Error: Missing args for search command.")
+      print("Usage: python project3.py search <index file name> <key>")
+      return
+    
+    fileName = sys.argv[2]
 
-      if len(sys.argv) < 4:
-        print("Error: Missing args for search command.")
-        print("Usage: pythong project3.py search <index file name> <key>")
-        return
+    try:
+      key = int(sys.argv[3])
+    except ValueError:
+      print("Error: Key must be an integer.")
+      return
+
+    indexFile = IndexFile(fileName)
+    if indexFile.open():
+      result = indexFile.search(key)
+
+      if result:
+        foundkey, foundVal = result
+        print(f"Found Key: {foundkey}, Value: {foundVal}")
       
-      fileName = sys.argv[2]
-
-      try:
-        key = int(sys.argv[3])
-      except ValueError:
-        print("Error: Key must be an integer.")
-        return
-
-      indexFile = IndexFile(fileName)
-      if indexFile.open():
-        result = indexFile.search(key)
-
-        if result:
-          foundkey, foundVal = result
-          print(f"Found Key:{foundkey}, Value: {foundVal}")
-        
-        indexFile.close()
+      indexFile.close()
       
-    elif cmd == "load":
-      if len(sys.argv) < 4:
-        print("Error: Missing arguments for load command")
-        print("usage: python project3.py load <index file name> <csv file name>")
+  elif cmd == "load":
+    if len(sys.argv) < 4:
+      print("Error: Missing arguments for load command")
+      print("usage: python project3.py load <index file name> <csv file name>")
+    
+    indexFileName = sys.argv[2]
+
+    csvFileName = sys.argv[3]
+
+    indexFile = IndexFile(indexFileName)
+
+    if indexFile.open():
+      if indexFile.load_csv(csvFileName):
+        print(f"Data from '{csvFileName}' loaded successfully on index file '{indexFileName}'")
       
-      indexFileName = sys.argv[2]
+      indexFile.close()
+    return
 
-      csvFileName = sys.argv[3]
+  elif cmd == "print":
+    if len(sys.argv) < 3:
+      print("Error: Missing file name for print command.")
+      print("Usage: python python3.py print <index file name>")
+      return
 
-      indexFile = IndexFile(indexFileName)
+    fileName = sys.argv[2]
 
-      if indexFile.open():
-        if indexFile.load_csv(csvFileName):
-          print(f"Data from '{csvFileName}' loaded successfully on index file '{indexFileName}'")
-        
-        indexFile.close()
-    elif cmd == "print":
-      if len(sys.argv) < 3:
-        print("Error: Missing file name for print command.")
-        print("Usage: python python3.py print <index file name>")
-        return
+    indexFile = IndexFile(fileName)
+    if indexFile.open():
+      indexFile.print_tree()
+      indexFile.close()
 
-      fileName = sys.argv[2]
+  elif cmd == "extract":
+    if len(sys.argv) < 4:
+      print("Error: Missing arguments for extract command.")
+      print("Usage: python project3.py extract <index file name> <output file name>")
+      return
+    
+    indexFileName = sys.argv[2]
+    outputFileName = sys.argv[3]
 
-      indexFile = IndexFile(fileName)
-      if indexFile.open():
-        indexFile.print_tree()
-        indexFile.close()
-    elif cmd == "extract":
-      if len(sys.argv) < 4:
-        print("Error: Missing arguments for extract command.")
-        print("Usage: python project3.py extract <index file name> <output file name>")
-        return
-      indexFileName = sys.argv[2]
-      outputFileName = sys.argv[3]
+    if os.path.exists(outputFileName):
+      print(f"Error: Output file '{outputFileName}' already exists.")
+      return
 
-      indexFile = IndexFile(indexFileName)
-      if indexFile.open():
-        if indexFile.extract_to_csv(outputFileName):
-          print(f"Data extracted to '{outputFileName}' succesfully.")
-          indexFile.close()
+    indexFile = IndexFile(indexFileName)
+    if indexFile.open():
+      if indexFile.extract_to_csv(outputFileName):
+        print(f"Data extracted to '{outputFileName}' successfully.")
+      indexFile.close()
 
-    else:
-      print(f"Error: Unknown command '{cmd}'.")
-      print("Available commands: create, insert, search, load, print, extract")
+  else:
+    print(f"Error: Unknown command '{cmd}'.")
+    print("Available commands: create, insert, search, load, print, extract")
 
 
 if __name__ == "__main__":
