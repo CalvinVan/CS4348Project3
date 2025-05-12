@@ -130,3 +130,5 @@ Project ended with testing all the functions which seems to be running properly 
 ## May 11th 5:20PM
 Work on readme 
 Finished at 5:40PM
+
+Realized that I need to check for duplicates so will implement that. Did some bugfixing too regarding how loading csv was not working for an empty tree in an index file.

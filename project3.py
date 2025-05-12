@@ -4,7 +4,7 @@ import os
 import sys
 #import csv for load and extract
 import csv
-
+import struct
 
 #Memory and B-tree constants
 BLOCK_SIZE = 512
@@ -117,7 +117,7 @@ class IndexFile:
         f.write((1).to_bytes(8, 'big')) #writing the pointer to the next block id
 
         remainingBytes = BLOCK_SIZE - 24 #filling in the rest of the empty space with 0's
-        f.write(b'\x00' + remainingBytes)
+        f.write(b'\x00' * remainingBytes)
       
       return True
     except Exception as e:
@@ -223,25 +223,30 @@ class IndexFile:
     self.nodesInMemArrDict[blockID] = node
     return node
   
-  def search(self, key: int): #function to search in our b tree for the key
+  def search(self, key: int, outputErrors: bool = True): #function to search in our b tree for the key
     if not self.file:
-      print("Error: No index file is open.")
+      if outputErrors:
+        print("Error: No index file is open.")
       return None
     
     if self.rootBlockID == 0: #this means that there is no tree to search for key
-      print(f"Error: Key {key} not found as tree is empty.")
+      if outputErrors:
+        print(f"Error: Key {key} not found as tree is empty.")
       return None
 
-    return self.search_node(self.rootBlockID, key) #call helper function to search for node
+    return self.search_node(self.rootBlockID, key, outputErrors) #call helper function to search for node
   
-  def search_node(self, blockID: int, key: int): #helper function to search for the node 
+  def search_node(self, blockID: int, key: int, outputErrors): #helper function to search for the node 
     if blockID == 0:
-      print(f"Error: Key {key} not found because empty tree.")
+      if outputErrors:
+        print(f"Error: Key {key} not found because empty tree.")
       return None
 
     node = self.read_node(blockID)
     if not node:
-      print(f"Error: Key {key} not found because there is no node to search")
+      if outputErrors:
+        print(f"Error: Key {key} not found because there is no node to search")
+      return None
     
     i, found = node.search(key) #call b tree search function
 
@@ -249,15 +254,22 @@ class IndexFile:
       return (node.keys[i], node.values[i])
     
     if node.isLeaf: #if it is a leaf then the key can't be found as there are no more nodes to search for
-      print(f"Error: Key {key} not found.")
+      if outputErrors:
+        print(f"Error: Key {key} not found.")
       return None
 
-    return self.search_node(node.children[i], key) #if we do not find the key and it is not a leaf, we search the children 
+    return self.search_node(node.children[i], key, outputErrors) #if we do not find the key and it is not a leaf, we search the children 
   
   def insert(self, key: int, value: int): #function to insert key-value pair into b tree
     if not self.file:
       print("Error: No index file is open.")
       return False
+
+    if self.rootBlockID != 0:
+      result = self.search(key, outputErrors=False)
+      if result:
+        print(f"Error: Key {key} already exists in the B-Tree")
+        return False
     
     if self.rootBlockID == 0: #if the root is empty then we need to create the root
       root = self.allocate_node()
@@ -291,6 +303,14 @@ class IndexFile:
 
     #First we want to check if it is a leaf node
     if node.isLeaf:
+
+      #check for dupes 
+      for j in range(node.numKeys):
+        if key == node.keys[j]:
+          print(f"Error: Key {key} already exists in the B-tree.")
+          return False
+
+
       while i >= 0 and key < node.keys[i]: #if our last index is not 0 and our key is less than the key at the i'th position, we will move the keys and values to the right
         node.keys[i+1] = node.keys[i]
         node.values[i+1] = node.values[i]
@@ -384,7 +404,17 @@ class IndexFile:
           try:
             key = int(row[0])
             value = int(row[1])
-            self.insert(key, value)
+
+            if self.rootBlockID != 0:
+              result = self.search(key, outputErrors=False)
+              if result:
+                print(f"Warning: Skipping duplicate key {key} in CSV file.")
+                continue
+              else:
+                self.insert(key, value)
+            else:
+              self.insert(key, value) #Need  to make sure that it can load into an empty tree
+            
           except ValueError:
             print(f"Warning: Came across invalid row: {row}")
       return True
@@ -539,7 +569,7 @@ def main():
     if len(sys.argv) < 4:
       print("Error: Missing arguments for load command")
       print("usage: python project3.py load <index file name> <csv file name>")
-    
+      return
     indexFileName = sys.argv[2]
 
     csvFileName = sys.argv[3]
@@ -551,7 +581,6 @@ def main():
         print(f"Data from '{csvFileName}' loaded successfully on index file '{indexFileName}'")
       
       indexFile.close()
-    return
 
   elif cmd == "print":
     if len(sys.argv) < 3:
